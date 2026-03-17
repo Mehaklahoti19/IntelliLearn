@@ -371,11 +371,17 @@ const seedDatabase = async () => {
 
     console.log(`\n✅ Seeded ${sampleCourses.length} courses`);
     console.log('Email: test@example.com | Password: test123');
-    process.exit(0);
   } catch (error) {
     console.error('❌ Seed error:', error);
-    process.exit(1);
+    throw error;
   }
 };
 
-seedDatabase();
+// Run directly if called as script
+if (require.main === module) {
+  seedDatabase()
+    .then(() => process.exit(0))
+    .catch(() => process.exit(1));
+}
+
+module.exports = { seedDatabase };

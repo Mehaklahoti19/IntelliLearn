@@ -72,12 +72,26 @@ async function startServer() {
     // Don't exit — tables may already exist
   }
 
-  // Verify DB connection
+  // Verify DB connection and auto-seed if empty
   const prisma = new PrismaClient();
   try {
     await prisma.$connect();
-    await prisma.user.count();
-    console.log('✅ Database connected and tables verified');
+    const userCount = await prisma.user.count();
+    const courseCount = await prisma.course.count();
+    console.log(`✅ Database connected — ${courseCount} courses, ${userCount} users`);
+
+    // Auto-seed if no courses exist
+    if (courseCount === 0) {
+      console.log('📦 No courses found, running seeder...');
+      try {
+        const { seedDatabase } = require('./seeder');
+        await seedDatabase();
+        console.log('✅ Seeding complete');
+      } catch (seedErr) {
+        console.error('⚠️ Seeder error:', seedErr.message);
+      }
+    }
+
     await prisma.$disconnect();
   } catch (err) {
     console.error('❌ Database check failed:', err.message);
