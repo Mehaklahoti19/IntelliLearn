@@ -1,0 +1,193 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(uuid())
+  name            String
+  email           String   @unique
+  password        String
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  enrolledCourses Enrollment[]
+  bookmarkedCourses BookmarkedCourse[]
+  learningStreak  Int      @default(0) @map("learning_streak")
+  completedQuizzes CompletedQuiz[]
+  preferences     String?  // JSON string for preferences
+  chatHistory     ChatHistory[]
+  reviews         Review[]
+  notifications   Notification[]
+  resumeAnalyses  ResumeAnalysis[]
+  savedProjects   SavedProject[]
+
+  @@map("users")
+}
+
+model Course {
+  id               String   @id @default(uuid())
+  title            String
+  description      String
+  instructor       String
+  thumbnail        String
+  previewVideo     String?
+  category         String
+  difficulty       String
+  duration         Int      // in hours
+  price            Float
+  rating           Float    @default(0)
+  enrolledStudents Int      @default(0) @map("enrolled_students")
+  tags             String?  // JSON array of tags
+  syllabus         Lesson[]
+  enrollments      Enrollment[]
+  quizzes          Quiz[]
+  reviews          Review[]
+  bookmarkedBy     BookmarkedCourse[]
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("courses")
+}
+
+model Enrollment {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  courseId         String   @map("course_id")
+  progress         Int      @default(0)
+  completedLessons String?  // JSON array of lesson IDs
+  videoProgress    String?  // JSON map of lessonId -> seconds watched
+  lastAccessedAt   DateTime @default(now()) @map("last_accessed_at")
+  certificateEarned Boolean @default(false) @map("certificate_earned")
+  enrolledDate     DateTime @default(now()) @map("enrolled_date")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  user             User     @relation(fields: [userId], references: [id])
+  course           Course   @relation(fields: [courseId], references: [id])
+
+  @@unique([userId, courseId])
+  @@map("enrollments")
+}
+
+model Lesson {
+  id        String   @id @default(uuid())
+  courseId  String   @map("course_id")
+  title     String
+  content   String
+  duration  Int      // in minutes
+  order     Int
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  @@map("lessons")
+}
+
+model Quiz {
+  id            String   @id @default(uuid())
+  courseId      String   @map("course_id")
+  title         String
+  questions     String   // JSON array of questions
+  generatedByAI Boolean  @default(false) @map("generated_by_ai")
+  topic         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  course        Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  @@map("quizzes")
+}
+
+model ChatHistory {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  title     String   @default("New Chat")
+  messages  String   // JSON array of messages
+  courseId  String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("chat_histories")
+}
+
+model BookmarkedCourse {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  courseId  String   @map("course_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  @@map("bookmarked_courses")
+}
+
+model CompletedQuiz {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  quizId      String   @map("quiz_id")
+  score       Int
+  completedAt DateTime @default(now()) @map("completed_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("completed_quizzes")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  courseId  String   @map("course_id")
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, courseId])
+  @@map("reviews")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  title     String
+  message   String
+  type      String   @default("info") // info | reminder | suggestion | progress
+  read      Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model ResumeAnalysis {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  fileName         String   @map("file_name")
+  skills           String   // JSON array
+  missingSkills    String   @map("missing_skills") // JSON array
+  suggestions      String   // JSON array
+  rawText          String   @map("raw_text")
+  createdAt        DateTime @default(now()) @map("created_at")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("resume_analyses")
+}
+
+model SavedProject {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  title       String
+  description String
+  topic       String
+  difficulty  String
+  steps       String   // JSON array of steps
+  createdAt   DateTime @default(now()) @map("created_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("saved_projects")
+}
