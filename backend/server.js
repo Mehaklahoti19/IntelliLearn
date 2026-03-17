@@ -1,7 +1,6 @@
+// Must be first — sets DATABASE_URL before any Prisma client loads
 const dotenv = require('dotenv');
 dotenv.config();
-
-// Ensure DATABASE_URL is always set before Prisma loads
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = 'file:./dev.db';
 }
@@ -10,11 +9,10 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const { execSync } = require('child_process');
-const { PrismaClient } = require('@prisma/client');
+const { connectDB, getPrisma } = require('./config/database');
 
 const app = express();
 
-// Middleware
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
@@ -30,6 +28,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -47,9 +46,8 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'IntelliLearn API is running' });
 });
 
-// Error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Global error:', err.stack);
   res.status(500).json({ message: err.message || 'Something went wrong!' });
 });
 
@@ -58,7 +56,7 @@ app.use((req, res) => {
 });
 
 async function startServer() {
-  // Run migrations first
+  // Step 1: Run migrations
   try {
     console.log('Running database migrations...');
     execSync('npx prisma migrate deploy', {
@@ -68,37 +66,35 @@ async function startServer() {
     });
     console.log('✅ Migrations complete');
   } catch (err) {
-    console.error('❌ Migration error:', err.message);
-    // Don't exit — tables may already exist
+    console.error('⚠️ Migration error (may already be applied):', err.message);
   }
 
-  // Verify DB connection and auto-seed if empty
-  const prisma = new PrismaClient();
-  try {
-    await prisma.$connect();
-    const userCount = await prisma.user.count();
-    const courseCount = await prisma.course.count();
-    console.log(`✅ Database connected — ${courseCount} courses, ${userCount} users`);
+  // Step 2: Connect DB
+  await connectDB();
 
-    // Auto-seed if no courses exist
+  // Step 3: Verify tables + auto-seed if empty
+  const prisma = getPrisma();
+  try {
+    const courseCount = await prisma.course.count();
+    const userCount = await prisma.user.count();
+    console.log(`✅ DB ready — ${courseCount} courses, ${userCount} users`);
+
     if (courseCount === 0) {
-      console.log('📦 No courses found, running seeder...');
+      console.log('📦 Empty DB detected, running seeder...');
       try {
         const { seedDatabase } = require('./seeder');
         await seedDatabase();
-        console.log('✅ Seeding complete');
+        console.log('✅ Auto-seed complete');
       } catch (seedErr) {
         console.error('⚠️ Seeder error:', seedErr.message);
       }
     }
-
-    await prisma.$disconnect();
   } catch (err) {
-    console.error('❌ Database check failed:', err.message);
-    await prisma.$disconnect();
+    console.error('❌ DB verification failed:', err.message);
     process.exit(1);
   }
 
+  // Step 4: Start listening
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
