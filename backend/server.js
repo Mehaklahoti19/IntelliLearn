@@ -4,8 +4,13 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const { connectDB } = require('./config/database');
 
-// Load environment variables
+// Load environment variables FIRST
 dotenv.config();
+
+// Ensure DATABASE_URL is always set (required by Prisma)
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = 'file:./dev.db';
+}
 
 // Connect to database and run migrations
 async function initializeDatabase() {
