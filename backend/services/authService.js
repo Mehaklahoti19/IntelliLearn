@@ -16,15 +16,15 @@ class AuthService {
 
   // Generate JWT token
   generateToken(userId) {
-    return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-      expiresIn: '30d',
-    });
+    const secret = process.env.JWT_SECRET || 'intellilearn-fallback-secret-key-2024';
+    return jwt.sign({ id: userId }, secret, { expiresIn: '30d' });
   }
 
   // Verify JWT token
   verifyToken(token) {
     try {
-      return jwt.verify(token, process.env.JWT_SECRET);
+      const secret = process.env.JWT_SECRET || 'intellilearn-fallback-secret-key-2024';
+      return jwt.verify(token, secret);
     } catch (error) {
       return null;
     }
